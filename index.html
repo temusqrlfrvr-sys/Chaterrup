@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Chat Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --text-muted: #6c757d;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --border-color: #e5e7eb;
+            --sidebar-bg: #ffffff;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #111827;
+            --card-bg: #1f2937;
+            --text-color: #f9fafb;
+            --text-muted: #9ca3af;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --border-color: #374151;
+            --sidebar-bg: #1f2937;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 450px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .auth-container {
+            padding: 30px;
+        }
+
+        /* Tabs Header */
+        .tabs {
+            display: flex;
+            margin-bottom: 25px;
+            background: var(--bg-color);
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-radius: 6px;
+        }
+
+        .tab-btn.active {
+            background: var(--card-bg);
+            color: var(--primary);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        /* Forms */
+        .form-panel {
+            display: none;
+        }
+
+        .form-panel.active {
+            display: block;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            color: var(--text-color);
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+        }
+
+        /* Dashboard Layout */
+        #dashboard-view {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: var(--bg-color);
+            flex-direction: row;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .sidebar h2 {
+            font-size: 20px;
+            margin-bottom: 5px;
+            color: var(--primary);
+        }
+
+        .sidebar small {
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .nav-links {
+            list-style: none;
+            flex: 1;
+        }
+
+        .nav-links li {
+            padding: 12px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .nav-links li.active, .nav-links li:hover {
+            background: var(--bg-color);
+            color: var(--primary);
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content-panel {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+        }
+
+        .content-panel.active {
+            display: flex;
+        }
+
+        /* Chat Dashboard Controls */
+        .chat-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .room-list {
+            flex: 1;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            background: var(--card-bg);
+            overflow-y: auto;
+        }
+
+        .room-item {
+            padding: 12px;
+            background: var(--bg-color);
+            border-radius: 6px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Active Room Chat Box */
+        .chat-box {
+            flex: 1;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--card-bg);
+            padding: 15px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .chat-msg {
+            padding: 8px 12px;
+            border-radius: 6px;
+            background: var(--bg-color);
+            max-width: 70%;
+            word-break: break-word;
+        }
+
+        .chat-msg .sender-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            color: var(--text-color);
+            border-radius: 6px;
+            outline: none;
+        }
+
+        /* Settings Panel Layout */
+        .settings-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+        }
+
+        .settings-item {
+            margin-bottom: 20px;
+        }
+
+        .btn-danger { background: #ef4444; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-secondary { background: #6b7280; }
+        .btn-secondary:hover { background: #4b5563; }
+
+        /* Popups / Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 350px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="auth-container">
+        <div class="auth-container">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchAuthTab('login')">Login</button>
+                <button class="tab-btn" onclick="switchAuthTab('signup')">Sign Up</button>
+            </div>
+
+            <div id="login-panel" class="form-panel active">
+                <div class="input-group">
+                    <label>Username</label>
+                    <input type="text" id="login-user" placeholder="Enter username">
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="login-pass" placeholder="Enter password">
+                </div>
+                <button class="btn" onclick="handleLogin()">Login</button>
+            </div>
+
+            <div id="signup-panel" class="form-panel">
+                <div class="input-group">
+                    <label>Choose Username</label>
+                    <input type="text" id="signup-user" placeholder="Create username">
+                </div>
+                <div class="input-group">
+                    <label>Choose Password</label>
+                    <input type="password" id="signup-pass" placeholder="Create password">
+                </div>
+                <button class="btn" onclick="handleSignUp()">Create Account</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard-view">
+        <div class="sidebar">
+            <h2>Messenger</h2>
+            <small id="logged-in-user-label">Logged in as: </small>
+            <ul class="nav-links">
+                <li id="nav-chat-tab" class="active" onclick="switchDashboardTab('chat', event)">Chat Rooms</li>
+                <li id="nav-settings-tab" onclick="switchDashboardTab('settings', event)">Settings</li>
+            </ul>
+        </div>
+
+        <div class="main-content">
+            <div id="chat-panel" class="content-panel active">
+                <div class="chat-actions">
+                    <button class="btn" style="width: auto;" onclick="openCreateModal()">Create Room</button>
+                    <button class="btn btn-secondary" style="width: auto;" onclick="openJoinModal()">Join Room</button>
+                </div>
+                <h3>Your Rooms</h3><br>
+                <div class="room-list" id="room-list-container">
+                    </div>
+            </div>
+
+            <div id="room-chat-panel" class="content-panel">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                    <h3 id="active-room-title">Room Name</h3>
+                    <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; margin: 0;" onclick="backToRoomList()">Back to Rooms</button>
+                </div>
+                <div class="chat-box" id="active-chat-box">
+                    <div class="chat-msg"><i>Welcome to the room! Start messaging below.</i></div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="room-message-input" placeholder="Type a message..." onkeypress="handleChatKeyPress(event)">
+                    <button class="btn" style="width: auto; margin:0;" onclick="sendRoomMessage()">Send</button>
+                </div>
+            </div>
+
+            <div id="settings-panel" class="content-panel">
+                <h3>Preferences & Controls</h3><br>
+                <div class="settings-card">
+                    <div class="settings-item">
+                        <label>Background Theme</label>
+                        <select id="theme-selector" onchange="changeTheme(this.value)">
+                            <option value="light">White (Light)</option>
+                            <option value="dark">Black (Dark)</option>
+                        </select>
+                    </div>
+                    <div class="settings-item">
+                        <button class="btn btn-secondary" onclick="resetPassword()">Reset Password</button>
+                    </div>
+                    <div class="settings-item">
+                        <button class="btn btn-danger" onclick="deleteAccount()">Delete Account</button>
+                    </div>
+                    <div class="settings-item" style="margin-bottom: 0;">
+                        <button class="btn" onclick="signOut()">Sign Out</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="create-room-modal">
+        <div class="modal-content">
+            <h3>Create Chat Room</h3>
+            <div class="input-group" style="margin-top: 15px;">
+                <label>Room Name</label>
+                <input type="text" id="new-room-name" placeholder="e.g. Study Group">
+            </div>
+            <div class="input-group">
+                <label>4-Digit Join Code</label>
+                <input type="text" id="new-room-code" maxlength="4" placeholder="e.g. 1234">
+            </div>
+            <button class="btn" onclick="confirmCreateRoom()">Create</button>
+            <button class="btn btn-secondary" onclick="closeModals()">Cancel</button>
+        </div>
+    </div>
+
+    <div class="modal" id="join-room-modal">
+        <div class="modal-content">
+            <h3>Join Chat Room</h3>
+            <div class="input-group" style="margin-top: 15px;">
+                <label>Enter 4-Digit Code</label>
+                <input type="text" id="join-room-code" maxlength="4" placeholder="e.g. 1234">
+            </div>
+            <button class="btn" onclick="confirmJoinRoom()">Join</button>
+            <button class="btn btn-secondary" onclick="closeModals()">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let userRooms = [];
+        let currentOpenRoom = null;
+        let messagePollInterval = null;
+
+        function switchAuthTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
+            
+            if(tab === 'login') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('login-panel').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('signup-panel').classList.add('active');
+            }
+        }
+
+        function getStoredUsers() {
+            return JSON.parse(localStorage.getItem('chat_app_users')) || [];
+        }
+
+        function saveStoredUsers(users) {
+            localStorage.setItem('chat_app_users', JSON.stringify(users));
+        }
+
+        // Global Registry for all created rooms so join codes can be validated anywhere
+        function getGlobalRooms() {
+            return JSON.parse(localStorage.getItem('chat_global_rooms')) || [
+                { name: "General Lobby", code: "0000", owner: "System" }
+            ];
+        }
+
+        function saveGlobalRooms(rooms) {
+            localStorage.setItem('chat_global_rooms', JSON.stringify(rooms));
+        }
+
+        function handleSignUp() {
+            const username = document.getElementById('signup-user').value.trim();
+            const password = document.getElementById('signup-pass').value.trim();
+
+            if (!username || !password) {
+                alert('Please enter both a username and password.');
+                return;
+            }
+
+            let users = getStoredUsers();
+            if (users.some(u => u.username === username)) {
+                alert('Username already exists! Choose another or log in.');
+                return;
+            }
+
+            const newUser = {
+                username,
+                password,
+                rooms: ["0000"] // Keep track of codes this user belongs to
+            };
+
+            users.push(newUser);
+            saveStoredUsers(users);
+
+            alert('Account created successfully! You can now log in.');
+            switchAuthTab('login');
+            document.getElementById('login-user').value = username;
+        }
+
+        function handleLogin() {
+            const username = document.getElementById('login-user').value.trim();
+            const password = document.getElementById('login-pass').value.trim();
+
+            if (!username || !password) {
+                alert('Please enter both username and password.');
+                return;
+            }
+
+            let users = getStoredUsers();
+            const foundUser = users.find(u => u.username === username && u.password === password);
+
+            if (!foundUser) {
+                alert('Invalid username or password. Please check your credentials.');
+                return;
+            }
+
+            currentUser = foundUser;
+            loadUserRooms();
+            
+            document.getElementById('logged-in-user-label').innerText = `Logged in as: ${currentUser.username}`;
+            document.getElementById('auth-container').style.display = 'none';
+            document.getElementById('dashboard-view').style.display = 'flex';
+            renderRooms();
+        }
+
+        // Reconstruct userRooms list based on global rooms and user's joined room codes
+        function loadUserRooms() {
+            const globalRooms = getGlobalRooms();
+            const userRoomCodes = currentUser.rooms || ["0000"];
+            
+            userRooms = globalRooms.filter(gr => userRoomCodes.includes(gr.code));
+        }
+
+        function persistUserRooms() {
+            let users = getStoredUsers();
+            const index = users.findIndex(u => u.username === currentUser.username);
+            if (index !== -1) {
+                users[index].rooms = userRooms.map(r => r.code);
+                saveStoredUsers(users);
+            }
+        }
+
+        function switchDashboardTab(tab, event) {
+            if(messagePollInterval) clearInterval(messagePollInterval);
+            document.querySelectorAll('.nav-links li').forEach(l => l.classList.remove('active'));
+            document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+
+            if(event) event.target.classList.add('active');
+            
+            if(tab === 'chat') {
+                document.getElementById('chat-panel').classList.add('active');
+            } else if(tab === 'settings') {
+                document.getElementById('settings-panel').classList.add('active');
+            }
+        }
+
+        function changeTheme(theme) {
+            if(theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+        }
+
+        function renderRooms() {
+            loadUserRooms();
+            const container = document.getElementById('room-list-container');
+            container.innerHTML = '';
+            userRooms.forEach((room) => {
+                const isOwner = room.owner === currentUser.username;
+                container.innerHTML += `
+                    <div class="room-item">
+                        <div>
+                            <strong>${room.name}</strong> 
+                            <small style="color:var(--text-muted); display:block;">Code: ${room.code} ${isOwner ? '(Owner)' : ''}</small>
+                        </div>
+                        <button class="btn" style="width: auto; padding: 6px 12px; margin: 0;" onclick="openRoomByCode('${room.code}')">Open</button>
+                    </div>
+                `;
+            });
+        }
+
+        function openRoomByCode(code) {
+            loadUserRooms();
+            currentOpenRoom = userRooms.find(r => r.code === code);
+            if (!currentOpenRoom) return;
+
+            document.getElementById('active-room-title').innerText = `${currentOpenRoom.name} (Code: ${currentOpenRoom.code})`;
+            
+            document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('room-chat-panel').classList.add('active');
+
+            loadMessages();
+            // Poll storage every second to sync real-time messages across profiles/tabs
+            if(messagePollInterval) clearInterval(messagePollInterval);
+            messagePollInterval = setInterval(loadMessages, 1000);
+        }
+
+        function backToRoomList() {
+            if(messagePollInterval) clearInterval(messagePollInterval);
+            document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('chat-panel').classList.add('active');
+            renderRooms();
+        }
+
+        function getRoomMessages(code) {
+            const allMessages = JSON.parse(localStorage.getItem('chat_messages')) || {};
+            return allMessages[code] || [];
+        }
+
+        function saveRoomMessage(code, msgObj) {
+            const allMessages = JSON.parse(localStorage.getItem('chat_messages')) || {};
+            if(!allMessages[code]) allMessages[code] = [];
+            allMessages[code].push(msgObj);
+            localStorage.setItem('chat_messages', JSON.stringify(allMessages));
+        }
+
+        function loadMessages() {
+            if(!currentOpenRoom) return;
+            const chatBox = document.getElementById('active-chat-box');
+            const messages = getRoomMessages(currentOpenRoom.code);
+            
+            let html = '<div class="chat-msg"><i>Welcome to the room! Messages sync in real-time.</i></div>';
+            messages.forEach(m => {
+                const isSelf = m.sender === currentUser.username;
+                const alignStyle = isSelf ? 'margin-left: auto; background: var(--primary); color: white;' : 'margin-right: auto;';
+                html += `
+                    <div class="chat-msg" style="${alignStyle}">
+                        <span class="sender-label" style="${isSelf ? 'color: #e0e7ff;' : ''}">${m.sender}</span>
+                        ${m.text}
+                    </div>
+                `;
+            });
+            
+            // Only update DOM if content changed or scroll is at bottom to preserve layout experience
+            if(chatBox.innerHTML !== html) {
+                chatBox.innerHTML = html;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        function sendRoomMessage() {
+            const input = document.getElementById('room-message-input');
+            const msgText = input.value.trim();
+            if(!msgText || !currentOpenRoom) return;
+
+            const msgObj = {
+                sender: currentUser.username,
+                text: msgText,
+                timestamp: Date.now()
+            };
+
+            saveRoomMessage(currentOpenRoom.code, msgObj);
+            input.value = '';
+            loadMessages();
+        }
+
+        function handleChatKeyPress(event) {
+            if(event.key === 'Enter') {
+                sendRoomMessage();
+            }
+        }
+
+        function openCreateModal() { document.getElementById('create-room-modal').style.display = 'flex'; }
+        function openJoinModal() { document.getElementById('join-room-modal').style.display = 'flex'; }
+        function closeModals() {
+            document.getElementById('create-room-modal').style.display = 'none';
+            document.getElementById('join-room-modal').style.display = 'none';
+        }
+
+        function confirmCreateRoom() {
+            const name = document.getElementById('new-room-name').value.trim();
+            const code = document.getElementById('new-room-code').value.trim();
+            
+            if(!name || code.length !== 4) {
+                alert('Please enter a valid room name and a 4-digit code.');
+                return;
+            }
+
+            let globalRooms = getGlobalRooms();
+            if(globalRooms.some(r => r.code === code)) {
+                alert('A room with this 4-digit code already exists! Choose a unique code.');
+                return;
+            }
+
+            // Register room globally
+            const newRoom = { name, code, owner: currentUser.username };
+            globalRooms.push(newRoom);
+            saveGlobalRooms(globalRooms);
+
+            // Add code to current user's profile
+            currentUser.rooms.push(code);
+            persistUserRooms();
+
+            renderRooms();
+            closeModals();
+            document.getElementById('new-room-name').value = '';
+            document.getElementById('new-room-code').value = '';
+        }
+
+        function confirmJoinRoom() {
+            const code = document.getElementById('join-room-code').value.trim();
+            if(code.length !== 4) {
+                alert('Please enter a valid 4-digit code.');
+                return;
+            }
+
+            const globalRooms = getGlobalRooms();
+            const foundRoom = globalRooms.find(r => r.code === code);
+
+            // Check if room was actually created anywhere on the platform
+            if(!foundRoom) {
+                alert('Error: No room exists with this 4-digit code!');
+                return;
+            }
+
+            if(currentUser.rooms.includes(code)) {
+                alert('You have already joined this room.');
+                closeModals();
+                return;
+            }
+
+            currentUser.rooms.push(code);
+            persistUserRooms();
+
+            renderRooms();
+            closeModals();
+            document.getElementById('join-room-code').value = '';
+            alert(`Successfully joined room: "${foundRoom.name}"!`);
+        }
+
+        function resetPassword() {
+            const newPass = prompt("Enter your new password:");
+            if (newPass) {
+                currentUser.password = newPass;
+                let users = getStoredUsers();
+                const index = users.findIndex(u => u.username === currentUser.username);
+                if (index !== -1) {
+                    users[index] = currentUser;
+                    saveStoredUsers(users);
+                    alert("Password successfully updated!");
+                }
+            }
+        }
+
+        function deleteAccount() {
+            if(confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                let users = getStoredUsers();
+                users = users.filter(u => u.username !== currentUser.username);
+                saveStoredUsers(users);
+                location.reload();
+            }
+        }
+
+        function signOut() { 
+            location.reload(); 
+        }
+    </script>
+</body>
+</html>
