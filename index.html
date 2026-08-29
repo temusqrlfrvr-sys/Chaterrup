@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modern Chat Dashboard</title>
+    <title>Modern Firebase Chat Dashboard</title>
     <style>
         :root {
             --bg-color: #f4f6f9;
@@ -308,17 +308,19 @@
 </head>
 <body>
 
-    <div class="container" id="auth-container">
+    <!-- AUTHENTICATION CONTAINER (Defaults directly to Login Page view) -->
+    <div class="container" id="auth-container" style="display: block;">
         <div class="auth-container">
             <div class="tabs">
                 <button class="tab-btn active" onclick="switchAuthTab('login')">Login</button>
                 <button class="tab-btn" onclick="switchAuthTab('signup')">Sign Up</button>
             </div>
 
+            <!-- Login Form -->
             <div id="login-panel" class="form-panel active">
                 <div class="input-group">
-                    <label>Username</label>
-                    <input type="text" id="login-user" placeholder="Enter username">
+                    <label>Email Address</label>
+                    <input type="email" id="login-email" placeholder="Enter email">
                 </div>
                 <div class="input-group">
                     <label>Password</label>
@@ -327,10 +329,11 @@
                 <button class="btn" onclick="handleLogin()">Login</button>
             </div>
 
+            <!-- Sign Up Form -->
             <div id="signup-panel" class="form-panel">
                 <div class="input-group">
-                    <label>Choose Username</label>
-                    <input type="text" id="signup-user" placeholder="Create username">
+                    <label>Email Address</label>
+                    <input type="email" id="signup-email" placeholder="Enter email">
                 </div>
                 <div class="input-group">
                     <label>Choose Password</label>
@@ -341,7 +344,8 @@
         </div>
     </div>
 
-    <div id="dashboard-view">
+    <!-- DASHBOARD VIEW -->
+    <div id="dashboard-view" style="display: none;">
         <div class="sidebar">
             <h2>Messenger</h2>
             <small id="logged-in-user-label">Logged in as: </small>
@@ -352,6 +356,7 @@
         </div>
 
         <div class="main-content">
+            <!-- Chat Tab Panel (Room List) -->
             <div id="chat-panel" class="content-panel active">
                 <div class="chat-actions">
                     <button class="btn" style="width: auto;" onclick="openCreateModal()">Create Room</button>
@@ -359,16 +364,18 @@
                 </div>
                 <h3>Your Rooms</h3><br>
                 <div class="room-list" id="room-list-container">
-                    </div>
+                    <!-- Rooms dynamically injected here -->
+                </div>
             </div>
 
+            <!-- Active Room Chat Panel -->
             <div id="room-chat-panel" class="content-panel">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
                     <h3 id="active-room-title">Room Name</h3>
                     <button class="btn btn-secondary" style="width: auto; padding: 6px 12px; margin: 0;" onclick="backToRoomList()">Back to Rooms</button>
                 </div>
                 <div class="chat-box" id="active-chat-box">
-                    <div class="chat-msg"><i>Welcome to the room! Start messaging below.</i></div>
+                    <div class="chat-msg"><i>Welcome to the room! Messages sync in real-time via Firebase.</i></div>
                 </div>
                 <div class="chat-input-area">
                     <input type="text" id="room-message-input" placeholder="Type a message..." onkeypress="handleChatKeyPress(event)">
@@ -376,6 +383,7 @@
                 </div>
             </div>
 
+            <!-- Settings Tab Panel -->
             <div id="settings-panel" class="content-panel">
                 <h3>Preferences & Controls</h3><br>
                 <div class="settings-card">
@@ -400,6 +408,7 @@
         </div>
     </div>
 
+    <!-- CREATE ROOM MODAL -->
     <div class="modal" id="create-room-modal">
         <div class="modal-content">
             <h3>Create Chat Room</h3>
@@ -416,6 +425,7 @@
         </div>
     </div>
 
+    <!-- JOIN ROOM MODAL -->
     <div class="modal" id="join-room-modal">
         <div class="modal-content">
             <h3>Join Chat Room</h3>
@@ -428,13 +438,50 @@
         </div>
     </div>
 
-    <script>
-        let currentUser = null;
-        let userRooms = [];
-        let currentOpenRoom = null;
-        let messagePollInterval = null;
+    <!-- FIREBASE SDKs (Modular v10) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword, 
+            signOut as fbSignOut, 
+            sendPasswordResetEmail, 
+            deleteUser, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            doc, 
+            setDoc, 
+            getDoc, 
+            arrayUnion, 
+            query, 
+            addDoc, 
+            onSnapshot, 
+            orderBy 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        function switchAuthTab(tab) {
+        const firebaseConfig = {
+            apiKey: "AIzaSyAotwXoPkHGxselCOWH2mw51x4VuhDJUzY",
+            authDomain: "chatbase-634c8.firebaseapp.com",
+            projectId: "chatbase-634c8",
+            storageBucket: "chatbase-634c8.firebasestorage.app",
+            messagingSenderId: "798124008105",
+            appId: "1:798124008105:web:ec5d06d89f4008c4fa7fb8",
+            measurementId: "G-RMM389DKK2"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let currentOpenRoom = null;
+        let unsubscribeMessages = null;
+
+        window.switchAuthTab = function(tab) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
             
@@ -445,101 +492,175 @@
                 document.querySelectorAll('.tab-btn')[1].classList.add('active');
                 document.getElementById('signup-panel').classList.add('active');
             }
-        }
+        };
 
-        function getStoredUsers() {
-            return JSON.parse(localStorage.getItem('chat_app_users')) || [];
-        }
-
-        function saveStoredUsers(users) {
-            localStorage.setItem('chat_app_users', JSON.stringify(users));
-        }
-
-        // Global Registry for all created rooms so join codes can be validated anywhere
-        function getGlobalRooms() {
-            return JSON.parse(localStorage.getItem('chat_global_rooms')) || [
-                { name: "General Lobby", code: "0000", owner: "System" }
-            ];
-        }
-
-        function saveGlobalRooms(rooms) {
-            localStorage.setItem('chat_global_rooms', JSON.stringify(rooms));
-        }
-
-        function handleSignUp() {
-            const username = document.getElementById('signup-user').value.trim();
+        window.handleSignUp = async function() {
+            const email = document.getElementById('signup-email').value.trim();
             const password = document.getElementById('signup-pass').value.trim();
 
-            if (!username || !password) {
-                alert('Please enter both a username and password.');
+            if (!email || !password) {
+                alert('Please enter both email and password.');
                 return;
             }
 
-            let users = getStoredUsers();
-            if (users.some(u => u.username === username)) {
-                alert('Username already exists! Choose another or log in.');
-                return;
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                await setDoc(doc(db, "users", user.uid), {
+                    email: user.email,
+                    rooms: ["0000"]
+                });
+
+                const lobbyRef = doc(db, "rooms", "0000");
+                const lobbySnap = await getDoc(lobbyRef);
+                if (!lobbySnap.exists()) {
+                    await setDoc(lobbyRef, { name: "General Lobby", code: "0000", owner: "System" });
+                }
+
+                alert('Account created successfully!');
+            } catch (error) {
+                console.error("Sign up full error:", error);
+                alert('Sign up error: ' + error.message);
             }
+        };
 
-            const newUser = {
-                username,
-                password,
-                rooms: ["0000"] // Keep track of codes this user belongs to
-            };
-
-            users.push(newUser);
-            saveStoredUsers(users);
-
-            alert('Account created successfully! You can now log in.');
-            switchAuthTab('login');
-            document.getElementById('login-user').value = username;
-        }
-
-        function handleLogin() {
-            const username = document.getElementById('login-user').value.trim();
+        window.handleLogin = async function() {
+            const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-pass').value.trim();
 
-            if (!username || !password) {
-                alert('Please enter both username and password.');
+            if (!email || !password) {
+                alert('Please enter both email and password.');
                 return;
             }
 
-            let users = getStoredUsers();
-            const foundUser = users.find(u => u.username === username && u.password === password);
-
-            if (!foundUser) {
-                alert('Invalid username or password. Please check your credentials.');
-                return;
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                console.error("Login full error:", error);
+                alert('Login failed: ' + error.message);
             }
+        };
 
-            currentUser = foundUser;
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('logged-in-user-label').innerText = `Logged in as: ${user.email}`;
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('dashboard-view').style.display = 'flex';
+                loadUserRooms();
+            } else {
+                currentUser = null;
+                if (unsubscribeMessages) unsubscribeMessages();
+                document.getElementById('dashboard-view').style.display = 'none';
+                document.getElementById('auth-container').style.display = 'block';
+                window.switchAuthTab('login');
+            }
+        });
+
+        async function loadUserRooms() {
+            if (!currentUser) return;
+            try {
+                const userDocRef = doc(db, "users", currentUser.uid);
+                const userSnap = await getDoc(userDocRef);
+                
+                let roomCodes = ["0000"];
+                if (userSnap.exists()) {
+                    roomCodes = userSnap.data().rooms || ["0000"];
+                } else {
+                    // Automatically provision missing profile document if logging into an older account
+                    await setDoc(userDocRef, { email: currentUser.email, rooms: ["0000"] }, { merge: true });
+                }
+
+                const container = document.getElementById('room-list-container');
+                container.innerHTML = '';
+
+                for (let code of roomCodes) {
+                    const roomDocRef = doc(db, "rooms", code);
+                    const roomSnap = await getDoc(roomDocRef);
+                    if (roomSnap.exists()) {
+                        const roomData = roomSnap.data();
+                        const isOwner = roomData.owner === currentUser.email;
+                        container.innerHTML += `
+                            <div class="room-item">
+                                <div>
+                                    <strong>${roomData.name}</strong> 
+                                    <small style="color:var(--text-muted); display:block;">Code: ${roomData.code} ${isOwner ? '(Owner)' : ''}</small>
+                                </div>
+                                <button class="btn" style="width: auto; padding: 6px 12px; margin: 0;" onclick="openRoomByCode('${roomData.code}', '${roomData.name}')">Open</button>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                console.error("Error loading rooms:", error);
+            }
+        }
+
+        window.openRoomByCode = function(code, name) {
+            currentOpenRoom = { code, name };
+            document.getElementById('active-room-title').innerText = `${name} (Code: ${code})`;
+            
+            document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('room-chat-panel').classList.add('active');
+
+            if (unsubscribeMessages) unsubscribeMessages();
+            
+            const msgQuery = query(collection(db, "rooms", code, "messages"), orderBy("timestamp", "asc"));
+            unsubscribeMessages = onSnapshot(msgQuery, (snapshot) => {
+                const chatBox = document.getElementById('active-chat-box');
+                let html = '<div class="chat-msg"><i>Welcome to the room! Messages sync in real-time.</i></div>';
+                
+                snapshot.forEach((docSnap) => {
+                    const m = docSnap.data();
+                    const isSelf = m.sender === currentUser.email;
+                    const alignStyle = isSelf ? 'margin-left: auto; background: var(--primary); color: white;' : 'margin-right: auto;';
+                    html += `
+                        <div class="chat-msg" style="${alignStyle}">
+                            <span class="sender-label" style="${isSelf ? 'color: #e0e7ff;' : ''}">${m.sender}</span>
+                            ${m.text}
+                        </div>
+                    `;
+                });
+                chatBox.innerHTML = html;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }, (error) => {
+                console.error("Firestore snapshot error:", error);
+            });
+        };
+
+        window.backToRoomList = function() {
+            if (unsubscribeMessages) unsubscribeMessages();
+            document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('chat-panel').classList.add('active');
             loadUserRooms();
-            
-            document.getElementById('logged-in-user-label').innerText = `Logged in as: ${currentUser.username}`;
-            document.getElementById('auth-container').style.display = 'none';
-            document.getElementById('dashboard-view').style.display = 'flex';
-            renderRooms();
-        }
+        };
 
-        // Reconstruct userRooms list based on global rooms and user's joined room codes
-        function loadUserRooms() {
-            const globalRooms = getGlobalRooms();
-            const userRoomCodes = currentUser.rooms || ["0000"];
-            
-            userRooms = globalRooms.filter(gr => userRoomCodes.includes(gr.code));
-        }
+        window.sendRoomMessage = async function() {
+            const input = document.getElementById('room-message-input');
+            const msgText = input.value.trim();
+            if (!msgText || !currentOpenRoom) return;
 
-        function persistUserRooms() {
-            let users = getStoredUsers();
-            const index = users.findIndex(u => u.username === currentUser.username);
-            if (index !== -1) {
-                users[index].rooms = userRooms.map(r => r.code);
-                saveStoredUsers(users);
+            try {
+                await addDoc(collection(db, "rooms", currentOpenRoom.code, "messages"), {
+                    sender: currentUser.email,
+                    text: msgText,
+                    timestamp: Date.now()
+                });
+                input.value = '';
+            } catch (error) {
+                console.error("Error sending message:", error);
             }
-        }
+        };
 
-        function switchDashboardTab(tab, event) {
-            if(messagePollInterval) clearInterval(messagePollInterval);
+        window.handleChatKeyPress = function(event) {
+            if(event.key === 'Enter') {
+                window.sendRoomMessage();
+            }
+        };
+
+        window.switchDashboardTab = function(tab, event) {
+            if (unsubscribeMessages) unsubscribeMessages();
             document.querySelectorAll('.nav-links li').forEach(l => l.classList.remove('active'));
             document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
 
@@ -547,126 +668,28 @@
             
             if(tab === 'chat') {
                 document.getElementById('chat-panel').classList.add('active');
+                loadUserRooms();
             } else if(tab === 'settings') {
                 document.getElementById('settings-panel').classList.add('active');
             }
-        }
+        };
 
-        function changeTheme(theme) {
+        window.changeTheme = function(theme) {
             if(theme === 'dark') {
                 document.documentElement.setAttribute('data-theme', 'dark');
             } else {
                 document.documentElement.removeAttribute('data-theme');
             }
-        }
+        };
 
-        function renderRooms() {
-            loadUserRooms();
-            const container = document.getElementById('room-list-container');
-            container.innerHTML = '';
-            userRooms.forEach((room) => {
-                const isOwner = room.owner === currentUser.username;
-                container.innerHTML += `
-                    <div class="room-item">
-                        <div>
-                            <strong>${room.name}</strong> 
-                            <small style="color:var(--text-muted); display:block;">Code: ${room.code} ${isOwner ? '(Owner)' : ''}</small>
-                        </div>
-                        <button class="btn" style="width: auto; padding: 6px 12px; margin: 0;" onclick="openRoomByCode('${room.code}')">Open</button>
-                    </div>
-                `;
-            });
-        }
-
-        function openRoomByCode(code) {
-            loadUserRooms();
-            currentOpenRoom = userRooms.find(r => r.code === code);
-            if (!currentOpenRoom) return;
-
-            document.getElementById('active-room-title').innerText = `${currentOpenRoom.name} (Code: ${currentOpenRoom.code})`;
-            
-            document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
-            document.getElementById('room-chat-panel').classList.add('active');
-
-            loadMessages();
-            // Poll storage every second to sync real-time messages across profiles/tabs
-            if(messagePollInterval) clearInterval(messagePollInterval);
-            messagePollInterval = setInterval(loadMessages, 1000);
-        }
-
-        function backToRoomList() {
-            if(messagePollInterval) clearInterval(messagePollInterval);
-            document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
-            document.getElementById('chat-panel').classList.add('active');
-            renderRooms();
-        }
-
-        function getRoomMessages(code) {
-            const allMessages = JSON.parse(localStorage.getItem('chat_messages')) || {};
-            return allMessages[code] || [];
-        }
-
-        function saveRoomMessage(code, msgObj) {
-            const allMessages = JSON.parse(localStorage.getItem('chat_messages')) || {};
-            if(!allMessages[code]) allMessages[code] = [];
-            allMessages[code].push(msgObj);
-            localStorage.setItem('chat_messages', JSON.stringify(allMessages));
-        }
-
-        function loadMessages() {
-            if(!currentOpenRoom) return;
-            const chatBox = document.getElementById('active-chat-box');
-            const messages = getRoomMessages(currentOpenRoom.code);
-            
-            let html = '<div class="chat-msg"><i>Welcome to the room! Messages sync in real-time.</i></div>';
-            messages.forEach(m => {
-                const isSelf = m.sender === currentUser.username;
-                const alignStyle = isSelf ? 'margin-left: auto; background: var(--primary); color: white;' : 'margin-right: auto;';
-                html += `
-                    <div class="chat-msg" style="${alignStyle}">
-                        <span class="sender-label" style="${isSelf ? 'color: #e0e7ff;' : ''}">${m.sender}</span>
-                        ${m.text}
-                    </div>
-                `;
-            });
-            
-            // Only update DOM if content changed or scroll is at bottom to preserve layout experience
-            if(chatBox.innerHTML !== html) {
-                chatBox.innerHTML = html;
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }
-        }
-
-        function sendRoomMessage() {
-            const input = document.getElementById('room-message-input');
-            const msgText = input.value.trim();
-            if(!msgText || !currentOpenRoom) return;
-
-            const msgObj = {
-                sender: currentUser.username,
-                text: msgText,
-                timestamp: Date.now()
-            };
-
-            saveRoomMessage(currentOpenRoom.code, msgObj);
-            input.value = '';
-            loadMessages();
-        }
-
-        function handleChatKeyPress(event) {
-            if(event.key === 'Enter') {
-                sendRoomMessage();
-            }
-        }
-
-        function openCreateModal() { document.getElementById('create-room-modal').style.display = 'flex'; }
-        function openJoinModal() { document.getElementById('join-room-modal').style.display = 'flex'; }
-        function closeModals() {
+        window.openCreateModal = function() { document.getElementById('create-room-modal').style.display = 'flex'; };
+        window.openJoinModal = function() { document.getElementById('join-room-modal').style.display = 'flex'; };
+        window.closeModals = function() {
             document.getElementById('create-room-modal').style.display = 'none';
             document.getElementById('join-room-modal').style.display = 'none';
-        }
+        };
 
-        function confirmCreateRoom() {
+        window.confirmCreateRoom = async function() {
             const name = document.getElementById('new-room-name').value.trim();
             const code = document.getElementById('new-room-code').value.trim();
             
@@ -675,84 +698,102 @@
                 return;
             }
 
-            let globalRooms = getGlobalRooms();
-            if(globalRooms.some(r => r.code === code)) {
-                alert('A room with this 4-digit code already exists! Choose a unique code.');
-                return;
+            try {
+                const roomRef = doc(db, "rooms", code);
+                const roomSnap = await getDoc(roomRef);
+
+                if (roomSnap.exists()) {
+                    alert('A room with this 4-digit code already exists!');
+                    return;
+                }
+
+                await setDoc(roomRef, { name, code, owner: currentUser.email });
+
+                const userDocRef = doc(db, "users", currentUser.uid);
+                await setDoc(userDocRef, {
+                    email: currentUser.email,
+                    rooms: arrayUnion(code)
+                }, { merge: true });
+
+                loadUserRooms();
+                window.closeModals();
+                document.getElementById('new-room-name').value = '';
+                document.getElementById('new-room-code').value = '';
+            } catch (error) {
+                console.error("Create room full error:", error);
+                alert('Error creating room: ' + error.message);
             }
+        };
 
-            // Register room globally
-            const newRoom = { name, code, owner: currentUser.username };
-            globalRooms.push(newRoom);
-            saveGlobalRooms(globalRooms);
-
-            // Add code to current user's profile
-            currentUser.rooms.push(code);
-            persistUserRooms();
-
-            renderRooms();
-            closeModals();
-            document.getElementById('new-room-name').value = '';
-            document.getElementById('new-room-code').value = '';
-        }
-
-        function confirmJoinRoom() {
+        window.confirmJoinRoom = async function() {
             const code = document.getElementById('join-room-code').value.trim();
             if(code.length !== 4) {
                 alert('Please enter a valid 4-digit code.');
                 return;
             }
 
-            const globalRooms = getGlobalRooms();
-            const foundRoom = globalRooms.find(r => r.code === code);
+            try {
+                const roomRef = doc(db, "rooms", code);
+                const roomSnap = await getDoc(roomRef);
 
-            // Check if room was actually created anywhere on the platform
-            if(!foundRoom) {
-                alert('Error: No room exists with this 4-digit code!');
-                return;
+                if(!roomSnap.exists()) {
+                    alert('Error: No room exists with this 4-digit code!');
+                    return;
+                }
+
+                const userDocRef = doc(db, "users", currentUser.uid);
+                const userSnap = await getDoc(userDocRef);
+                const joinedRooms = userSnap.exists() ? (userSnap.data().rooms || []) : [];
+
+                if (joinedRooms.includes(code)) {
+                    alert('You have already joined this room.');
+                    window.closeModals();
+                    return;
+                }
+
+                await setDoc(userDocRef, {
+                    email: currentUser.email,
+                    rooms: arrayUnion(code)
+                }, { merge: true });
+
+                loadUserRooms();
+                window.closeModals();
+                document.getElementById('join-room-code').value = '';
+                alert(`Successfully joined room: "${roomSnap.data().name}"!`);
+            } catch (error) {
+                console.error("Join room full error:", error);
+                alert('Error joining room: ' + error.message);
             }
+        };
 
-            if(currentUser.rooms.includes(code)) {
-                alert('You have already joined this room.');
-                closeModals();
-                return;
+        window.resetPassword = async function() {
+            if (!currentUser || !currentUser.email) return;
+            try {
+                await sendPasswordResetEmail(auth, currentUser.email);
+                alert("Password reset email sent to " + currentUser.email);
+            } catch (error) {
+                alert("Error: " + error.message);
             }
+        };
 
-            currentUser.rooms.push(code);
-            persistUserRooms();
-
-            renderRooms();
-            closeModals();
-            document.getElementById('join-room-code').value = '';
-            alert(`Successfully joined room: "${foundRoom.name}"!`);
-        }
-
-        function resetPassword() {
-            const newPass = prompt("Enter your new password:");
-            if (newPass) {
-                currentUser.password = newPass;
-                let users = getStoredUsers();
-                const index = users.findIndex(u => u.username === currentUser.username);
-                if (index !== -1) {
-                    users[index] = currentUser;
-                    saveStoredUsers(users);
-                    alert("Password successfully updated!");
+        window.deleteAccount = async function() {
+            if(confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                try {
+                    await deleteUser(auth.currentUser);
+                    alert("Account deleted.");
+                } catch (error) {
+                    alert("Error deleting account: " + error.message + "\n(Note: Firebase requires recent sign-in to delete accounts).");
                 }
             }
-        }
+        };
 
-        function deleteAccount() {
-            if(confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-                let users = getStoredUsers();
-                users = users.filter(u => u.username !== currentUser.username);
-                saveStoredUsers(users);
-                location.reload();
+        window.signOut = async function() {
+            try {
+                await fbSignOut(auth);
+            } catch (error) {
+                console.error("Sign out error:", error);
             }
-        }
-
-        function signOut() { 
-            location.reload(); 
-        }
+        };
     </script>
 </body>
 </html>
